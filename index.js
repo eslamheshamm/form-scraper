@@ -14,7 +14,7 @@ const fs = require("fs");
 const PORT = 8080;
 app.listen(PORT, () => {
 	console.log(`Server listening on port ${PORT}...`);
-  });
+});
 const scrapeForm = async (url) => {
 	const launchOptions = {
 		// Set viewport size
