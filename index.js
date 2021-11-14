@@ -1,3 +1,5 @@
+const express = require("express");
+const app = express();
 const puppeteer = require("puppeteer");
 const fs = require("fs");
 // const GetFilename = (url) => {
@@ -9,10 +11,20 @@ const fs = require("fs");
 // 	}
 // 	return "";
 // };
+const PORT = 8080;
+app.listen(PORT, () => {
+	console.log(`Server listening on port ${PORT}...`);
+  });
 const scrapeForm = async (url) => {
-	const browser = await puppeteer.launch({
+	const launchOptions = {
+		// Set viewport size
+		defaultViewport: { width: 1920, height: 1080 },
+		// Set window size
+		args: ["--window-size=1920,1080"],
+		// Disable headless mode for debugging
 		headless: false,
-	});
+	};
+	const browser = await puppeteer.launch(launchOptions);
 	const page = await browser.newPage();
 	await page.setViewport({ width: 1440, height: 1080 });
 	await page.goto(`${url}`, { waitUntil: "networkidle0" });
@@ -42,6 +54,7 @@ const scrapeForm = async (url) => {
 		);
 		return forms;
 	});
+	await page.evaluate((_) => {});
 	fs.mkdir(`${folderName}`, async () => {
 		fs.writeFileSync(
 			`./${folderName}/form.json`,
@@ -49,30 +62,23 @@ const scrapeForm = async (url) => {
 			"utf8"
 		);
 	});
-	const formsSCreen = await page.$$("form");
-	for (let i = 0; i < formsSCreen.length; i++) {
-		try {
-			const boundingBox = await formsSCreen[i].boundingBox();
-			// get screenshot of a particular element
-			await formsSCreen[i].screenshot({
-				path: `./${folderName}/${i}.png`,
-				clip: {
-					x: boundingBox.x,
-					y: boundingBox.y,
-					width: Math.min(boundingBox.width, page.viewport().width),
-					height: Math.min(boundingBox.height, page.viewport().height),
-				},
-			});
-		} catch (e) {
-			// if element is 'not visible', spit out error and continue
-			console.log(
-				`couldnt take screenshot of element with index: ${i}. cause: `,
-				e
-			);
-		}
+	const { contentSize } = await page._client.send("Page.getLayoutMetrics");
+	const dpr = page._viewport.deviceScaleFactor || 1;
+	const maxScreenshotHeight = 1080 / dpr;
+	for (let ypos = 0; ypos < contentSize.height; ypos += maxScreenshotHeight) {
+		const height = Math.min(contentSize.height - ypos, maxScreenshotHeight);
+		await page.screenshot({
+			path: `screenshot-@${ypos}px-${folderName}.png`,
+			clip: {
+				x: 0,
+				y: ypos,
+				width: contentSize.width,
+				height: height,
+			},
+		});
 	}
 	// console.log(JSON.stringify(formData, null, 2));
 	await browser.close();
 };
 
-scrapeForm(`https://riadeid.net/ask-riad-eid/`);
+scrapeForm(`https://tmentors.com/`);
